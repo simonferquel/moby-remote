@@ -1,6 +1,5 @@
 #pragma once
 #include "common.h"
-#include <mutex>
 #include <functional>
 #include <map>
 
@@ -41,12 +40,14 @@ namespace mobyremote {
 			return other;
 		}
 	};
+	
 	class Codec;
 	using EventHandler = std::function<void(Codec*, MessageType, Buffer)>;
 	using RequestHandler = std::function<void(Codec*, MessageType, std::uint32_t, Buffer)>;
 	class Codec {
+		struct MutexWrapper;
 	private:
-		std::mutex _mutex;
+		std::unique_ptr<MutexWrapper> _mutex;
 		std::unique_ptr<Connection> _connection;
 		std::uint32_t _lastCorrelationId;
 		EventHandler _eventHandler;
@@ -54,9 +55,7 @@ namespace mobyremote {
 		std::map<std::uint32_t, EventHandler> _pendingRequests;
 	public:
 		Codec(std::unique_ptr<Connection>&& conn, const EventHandler& eventHandler, const RequestHandler& requestHandler);
-		~Codec() {
-			Close();
-		}
+		~Codec();
 		void ReceiveMessagesUntilClosed();
 
 		void Request(MessageType type, const BufferView& body, EventHandler callback);

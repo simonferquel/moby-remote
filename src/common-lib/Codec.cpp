@@ -1,13 +1,19 @@
 #include <protocol.h>
+#include <mutex>
 using namespace mobyremote;
-
-mobyremote::Codec::Codec(std::unique_ptr<Connection>&& conn, const EventHandler& eventHandler, const RequestHandler& requestHandler) : _connection(std::move(conn)), _lastCorrelationId(0), _eventHandler(eventHandler), _requestHandler(requestHandler)
+struct mobyremote::Codec::MutexWrapper {
+	std::mutex mut;
+};
+mobyremote::Codec::Codec(std::unique_ptr<Connection>&& conn, const EventHandler& eventHandler, const RequestHandler& requestHandler) : _connection(std::move(conn)), _lastCorrelationId(0), _eventHandler(eventHandler), _requestHandler(requestHandler), _mutex(std::make_unique<MutexWrapper>())
 {
 }
-
+mobyremote::Codec::~Codec()
+{
+	Close();
+}
 void mobyremote::Codec::Event(MessageType type, const BufferView & body)
 {
-	std::lock_guard<std::mutex> lg(_mutex);
+	std::lock_guard<std::mutex> lg(_mutex->mut);
 	MessageHeader h;
 	h.family = MessageFamily::Event;
 	h.type = type;
@@ -19,7 +25,7 @@ void mobyremote::Codec::Event(MessageType type, const BufferView & body)
 
 void mobyremote::Codec::Event(MessageType type, const std::initializer_list<BufferView>& bodyParts)
 {
-	std::lock_guard<std::mutex> lg(_mutex);
+	std::lock_guard<std::mutex> lg(_mutex->mut);
 	MessageHeader h;
 	h.family = MessageFamily::Event;
 	h.type = type;
@@ -55,7 +61,7 @@ void mobyremote::Codec::ReceiveMessagesUntilClosed()
 				break;
 			case MessageFamily::Response:
 			{
-				std::lock_guard<std::mutex> lg(_mutex);
+				std::lock_guard<std::mutex> lg(_mutex->mut);
 				auto found = _pendingRequests.find(h.correlationId);
 				if (found != _pendingRequests.end()) {
 					found->second(this, h.type, std::move(b));
@@ -74,7 +80,7 @@ void mobyremote::Codec::ReceiveMessagesUntilClosed()
 
 void mobyremote::Codec::Response(std::uint32_t correlationId, MessageType messageType, const BufferView & body)
 {
-	std::lock_guard<std::mutex> lg(_mutex);
+	std::lock_guard<std::mutex> lg(_mutex->mut);
 	MessageHeader h;
 	h.family = MessageFamily::Response;
 	h.type = messageType;
@@ -86,7 +92,7 @@ void mobyremote::Codec::Response(std::uint32_t correlationId, MessageType messag
 
 void mobyremote::Codec::Response(std::uint32_t correlationId, MessageType messageType, const std::initializer_list<BufferView>& bodyParts)
 {
-	std::lock_guard<std::mutex> lg(_mutex);
+	std::lock_guard<std::mutex> lg(_mutex->mut);
 	MessageHeader h;
 	h.family = MessageFamily::Response;
 	h.type = messageType;
@@ -103,7 +109,7 @@ void mobyremote::Codec::Response(std::uint32_t correlationId, MessageType messag
 
 void mobyremote::Codec::Request(MessageType type, const BufferView & body, EventHandler callback)
 {
-	std::lock_guard<std::mutex> lg(_mutex);
+	std::lock_guard<std::mutex> lg(_mutex->mut);
 	MessageHeader h;
 	h.family = MessageFamily::Request;
 	h.type = type;
@@ -116,7 +122,7 @@ void mobyremote::Codec::Request(MessageType type, const BufferView & body, Event
 
 void mobyremote::Codec::Request(MessageType type, const std::initializer_list<BufferView>& bodyParts, EventHandler callback)
 {
-	std::lock_guard<std::mutex> lg(_mutex);
+	std::lock_guard<std::mutex> lg(_mutex->mut);
 	MessageHeader h;
 	h.family = MessageFamily::Request;
 	h.type = type;

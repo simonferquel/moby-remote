@@ -1,0 +1,13 @@
+FROM simonferquel/vcbuild2015.3-cmake
+COPY . /code
+WORKDIR c:\\build\\release
+RUN cmake -DCMAKE_INSTALL_PREFIX=c:\\redist\\release -DCMAKE_BUILD_TYPE=Release -Dgtest_force_shared_crt=ON c:\\code
+RUN cmake --build .
+RUN ctest
+RUN cmake --build . -- install
+WORKDIR c:\\build\\debug
+RUN cmake -DCMAKE_INSTALL_PREFIX=c:\\redist\\debug -DCMAKE_BUILD_TYPE=Debug -Dgtest_force_shared_crt=ON c:\\code
+RUN cmake --build .
+RUN cmake --build . -- install
+RUN [Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') ;\
+	[System.IO.Compression.ZipFile]::CreateFromDirectory('c:\\redist', 'c:\\moby-remote.zip')
