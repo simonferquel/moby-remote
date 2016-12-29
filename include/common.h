@@ -15,6 +15,7 @@
 using SOCKET = int;
 #define INVALID_SOCKET -1
 #define closesocket close
+#define SD_BOTH SHUT_RDWR
 #endif
 namespace mobyremote{
 	enum class TransportError {
@@ -57,6 +58,7 @@ namespace mobyremote{
 		}
 		void Close() {
 			if (_socket != INVALID_SOCKET) {
+				shutdown(_socket, SD_BOTH);
 				if (0 != closesocket(_socket))
 				{
 					std::cerr << "close socket failed errno: " << errno << std::endl;

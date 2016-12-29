@@ -4,7 +4,6 @@
 #include <thread>
 #ifndef _WIN32
 #include <poll.h>
-#include <execinfo.h>
 #endif
 using namespace mobyremote;
 using namespace std;
@@ -101,16 +100,4 @@ std::unique_ptr<Connection> mobyremote::ConnectTo(const char * hostname, int por
 mobyremote::TransportErrorException::TransportErrorException(TransportError e) : Error(e)
 {
 	fprintf(stderr, "TransortErrorException %d\n", e);
-#ifndef _WIN32
-	fprintf(stderr, "errno: %d\n", errno);
-	void *array[10];
-	size_t size;
-
-	// get void*'s for all entries on the stack
-	size = backtrace(array, 10);
-
-	// print out all the frames to stderr
-	backtrace_symbols_fd(array, size, STDERR_FILENO);
-
-#endif
 }
