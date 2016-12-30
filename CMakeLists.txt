@@ -7,7 +7,6 @@ if(UNIX)
 	SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
 endif()
 
-
 include_directories(include)
 
 
@@ -28,6 +27,9 @@ add_library(common ${COMMON_LIB_SOURCES})
 add_library(clientlib ${CLIENT_LIB_SOURCES})
 add_library(serverlib ${SERVER_LIB_SOURCES})
 add_executable(server ${SERVER_SOURCES})
+set_target_properties(common PROPERTIES COMPILE_PDB_NAME common )
+set_target_properties(clientlib PROPERTIES COMPILE_PDB_NAME clientlib )
+set_target_properties(serverlib PROPERTIES COMPILE_PDB_NAME serverlib )
 target_link_libraries(server serverlib common)
 
 
@@ -49,3 +51,11 @@ install(TARGETS clientlib DESTINATION lib)
 install(TARGETS serverlib DESTINATION lib)
 install(TARGETS server DESTINATION bin)
 install(FILES ${PUBLIC_INCLUDE_FILES} DESTINATION include/moby-remote)
+IF(MSVC)
+	install (FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/common.pdb DESTINATION lib)
+	install (FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/clientlib.pdb DESTINATION lib)
+	install (FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/serverlib.pdb DESTINATION lib)
+	install (FILES ${CMAKE_CURRENT_BINARY_DIR}/\${BUILD_TYPE}/server.pdb DESTINATION bin)
+ENDIF(MSVC)
+
+

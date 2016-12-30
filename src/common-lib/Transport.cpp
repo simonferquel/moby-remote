@@ -97,7 +97,40 @@ std::unique_ptr<Connection> mobyremote::ConnectTo(const char * hostname, int por
 	return std::make_unique<Connection>(std::move(s));
 }
 
+
 mobyremote::TransportErrorException::TransportErrorException(TransportError e) : Error(e)
 {
 	fprintf(stderr, "TransortErrorException %d\n", e);
 }
+
+#ifdef _WIN32
+
+std::unique_ptr<Connection> mobyremote::ConnectTo(const char * hostname, int port, std::chrono::milliseconds timeout)
+{
+	init_transport_once();
+	auto resolved = Resolve(hostname, port);
+	SafeSocket s = socket(AF_INET, SOCK_STREAM, 0);
+	unsigned long nonBlocking = 1, blocking = 0;
+	ioctlsocket(s.Get(), FIONBIO, &nonBlocking);
+	auto secs = timeout.count() / 1000;
+	auto msecs = timeout.count() % 1000;
+	if (0 != connect(s.Get(), resolved->SockAddr(), resolved->SockAddrLen())) {
+		auto err = WSAGetLastError();
+		if (err != WSAEWOULDBLOCK) {
+			throw TransportErrorException{ TransportError::ConnectFailed };
+		}
+		fd_set fds;
+		FD_ZERO(&fds);
+		FD_SET(s.Get(), &fds);
+		timeval timeout;
+		timeout.tv_sec = secs;
+		timeout.tv_usec = 1000 * msecs;
+		if (select(1, nullptr, &fds, nullptr, &timeout) != 1) {
+			throw TransportErrorException{ TransportError::ConnectFailed };
+		}
+	}
+	ioctlsocket(s.Get(), FIONBIO, &blocking);
+	return std::make_unique<Connection>(std::move(s));
+}
+
+#endif

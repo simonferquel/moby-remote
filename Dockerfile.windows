@@ -1,7 +1,7 @@
 FROM simonferquel/vcbuild2015.3-cmake
 COPY . /code
 WORKDIR c:\\build\\release
-RUN cmake -DCMAKE_INSTALL_PREFIX=c:\\redist\\release -DCMAKE_BUILD_TYPE=Release -Dgtest_force_shared_crt=ON c:\\code
+RUN cmake -DCMAKE_INSTALL_PREFIX=c:\\redist\\release -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dgtest_force_shared_crt=ON c:\\code
 RUN cmake --build .
 RUN ctest
 RUN cmake --build . -- install

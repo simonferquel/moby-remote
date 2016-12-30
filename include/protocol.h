@@ -39,6 +39,20 @@ namespace mobyremote {
 			memcpy(other._data.get(), _data.get(), _size);
 			return other;
 		}
+		Buffer(Buffer&& moved) : _data(std::move(moved._data)), _size(moved._size) {
+			moved._size = 0;
+		}
+		Buffer& operator =(Buffer&& moved) {
+			if (&moved == this) {
+				return *this;
+			}
+			_data = std::move(moved._data);
+			_size = moved._size;
+			moved._size = 0;
+		}
+		~Buffer() {
+			_data.reset();
+		}
 	};
 	
 	class Codec;

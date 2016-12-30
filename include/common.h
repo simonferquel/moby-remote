@@ -7,6 +7,7 @@
 #include <iostream>
 #ifdef _WIN32
 #include <WinSock2.h>
+#include <chrono>
 #else
 #include <sys/types.h> 
 #include <sys/socket.h>
@@ -142,6 +143,9 @@ namespace mobyremote{
     };
 
 	std::unique_ptr<Connection> ConnectTo(const char* hostname, int port);
+#ifdef _WIN32
+	std::unique_ptr<Connection> ConnectTo(const char* hostname, int port, std::chrono::milliseconds timeout);
+#endif
 
 	void startThread(const std::function<void(void)>& callback);
 	void overrideStartThread(std::function<void(const std::function<void(void)>&)> threadStarter);
