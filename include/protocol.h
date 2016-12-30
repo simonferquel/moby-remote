@@ -49,6 +49,7 @@ namespace mobyremote {
 			_data = std::move(moved._data);
 			_size = moved._size;
 			moved._size = 0;
+			return *this;
 		}
 		~Buffer() {
 			_data.reset();

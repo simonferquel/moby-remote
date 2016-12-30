@@ -4,7 +4,7 @@ using namespace mobyremote;
 struct mobyremote::Codec::MutexWrapper {
 	std::mutex mut;
 };
-mobyremote::Codec::Codec(std::unique_ptr<Connection>&& conn, const EventHandler& eventHandler, const RequestHandler& requestHandler) : _connection(std::move(conn)), _lastCorrelationId(0), _eventHandler(eventHandler), _requestHandler(requestHandler), _mutex(std::make_unique<MutexWrapper>())
+mobyremote::Codec::Codec(std::unique_ptr<Connection>&& conn, const EventHandler& eventHandler, const RequestHandler& requestHandler) : _mutex(std::make_unique<MutexWrapper>()), _connection(std::move(conn)), _lastCorrelationId(0), _eventHandler(eventHandler), _requestHandler(requestHandler)
 {
 }
 mobyremote::Codec::~Codec()

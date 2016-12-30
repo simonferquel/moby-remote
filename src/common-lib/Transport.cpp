@@ -100,7 +100,7 @@ std::unique_ptr<Connection> mobyremote::ConnectTo(const char * hostname, int por
 
 mobyremote::TransportErrorException::TransportErrorException(TransportError e) : Error(e)
 {
-	fprintf(stderr, "TransortErrorException %d\n", e);
+	fprintf(stderr, "TransortErrorException %d\n", (int)e);
 }
 
 #ifdef _WIN32
