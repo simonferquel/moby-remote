@@ -16,3 +16,7 @@ void mobyremote::startThread(const std::function<void(void)>& callback)
 		std::thread(callback).detach();
 	}
 }
+void mobyremote::resetStartThread()
+{
+	_mobyStartThread.reset();
+}

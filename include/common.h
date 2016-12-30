@@ -149,4 +149,5 @@ namespace mobyremote{
 
 	void startThread(const std::function<void(void)>& callback);
 	void overrideStartThread(std::function<void(const std::function<void(void)>&)> threadStarter);
+	void resetStartThread();
 }
