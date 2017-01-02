@@ -18,6 +18,6 @@ namespace mobyremote {
 			_codec->Close();
 		}
 
-		void ReplaceFileContent(const std::string& fileName, Buffer b, std::function<void(bool)> callback);
+		void ReplaceFileContent(const std::string& fileName, Buffer&& b, std::function<void(bool)> callback);
 	};
 }

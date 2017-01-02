@@ -26,7 +26,7 @@ std::shared_ptr<Client> mobyremote::Client::make(std::unique_ptr<Connection>&& c
 	});
 	return client;
 }
-void mobyremote::Client::ReplaceFileContent(const std::string& fileName, Buffer b, std::function<void(bool)> callback)
+void mobyremote::Client::ReplaceFileContent(const std::string& fileName, Buffer&& b, std::function<void(bool)> callback)
 {
 	ReplaceFileRequest request(fileName, std::move(b));
 	request.Send(_codec.get(), callback);
