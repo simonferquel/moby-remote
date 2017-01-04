@@ -109,6 +109,13 @@ namespace mobyremote{
 	};
 
 	template<typename T>
+	T* Unbufferize(BufferView bv) {
+		if (bv.size() < sizeof(T)) {
+			throw std::out_of_range("Buffer is too small");
+		}
+		return reinterpret_cast<T*>(bv.begin());
+	}
+	template<typename T>
 	BufferView Bufferize(T& value) {
 		return BufferView(reinterpret_cast<char*>(&value), sizeof(T));
 	}

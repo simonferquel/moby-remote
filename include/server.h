@@ -26,4 +26,19 @@ namespace mobyremote {
 			_codec->Close();
 		}
 	};
+
+	class IPortForwarder {
+	public:
+		virtual ~IPortForwarder() {}
+		virtual void Handle(PortForwardingRequest request, std::function<void(PortForwardingResponse)> callback) = 0;
+	};
+	class PortForwardingRequestListener {
+	private:
+		SafeSocket _s;
+		std::shared_ptr<IPortForwarder> _forwarder;
+	public:
+		PortForwardingRequestListener(const char* path, const std::shared_ptr<IPortForwarder>& forwarder);
+		void Loop();
+		void Stop();
+	};
 }

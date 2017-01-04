@@ -4,6 +4,7 @@ namespace mobyremote {
 	class IClientHandler {
 	public:
 		virtual ~IClientHandler(){}
+		virtual PortForwardingResponse OnExposePortAction(PortForwardingRequest req) = 0;
 	};
 	class Client {
 	private:

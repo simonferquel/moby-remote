@@ -8,7 +8,9 @@ namespace mobyremote {
 		ReplaceFileRequest,
 		ReplaceFileResponse,
 		ConnectionInterrupted,
-		NotImplemented
+		NotImplemented,
+		ExposePortRequest,
+		ExposePortResponse
 	};
 	enum class MessageFamily : std::uint32_t {
 		Request,
@@ -21,6 +23,20 @@ namespace mobyremote {
 		MessageFamily family;
 		std::uint32_t correlationId;
 		std::uint32_t bodySize;
+	};
+	struct PortForwardingRequest {
+		std::int8_t action; // 1:on, 2:off
+		std::int8_t protocols; // 0x1:tcp, 0x2:udp
+		std::uint16_t port;
+	};
+	struct PortForwardingResponse {
+		std::uint32_t status; // 1:ok, 2:ko
+		static PortForwardingResponse Ok() {
+			return PortForwardingResponse{ 1 };
+		}
+		static PortForwardingResponse Fail() {
+			return PortForwardingResponse{ 2 };
+		}
 	};
 #pragma pack(pop)
 	class Buffer {

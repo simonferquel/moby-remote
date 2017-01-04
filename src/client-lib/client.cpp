@@ -10,7 +10,20 @@ void DispatchMobyRemoteClientEvent(std::weak_ptr<IClientHandler> serverHandler, 
 void DispatchMobyRemoteClientRequest(std::weak_ptr<IClientHandler> serverHandler, Codec* codec, MessageType messageType, std::uint32_t correlationId, Buffer& b) {
 	auto handler = serverHandler.lock();
 	if (!handler) {
+		codec->Response(correlationId, MessageType::NotImplemented, BufferView(nullptr, 0));
 		return;
+	}
+	switch (messageType)
+	{
+	case mobyremote::MessageType::ExposePortRequest:
+		{
+			auto resp = handler->OnExposePortAction(*Unbufferize<PortForwardingRequest>(b.View()));
+			codec->Response(correlationId, MessageType::ExposePortResponse, Bufferize(resp));
+		}
+		break;
+	default:
+		codec->Response(correlationId, MessageType::NotImplemented, BufferView(nullptr, 0));
+		break;
 	}
 }
 std::shared_ptr<Client> mobyremote::Client::make(std::unique_ptr<Connection>&& conn, const std::shared_ptr<IClientHandler>& handler)

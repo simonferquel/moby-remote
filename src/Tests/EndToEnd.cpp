@@ -57,7 +57,12 @@ public:
 
 
 TEST(EndToEnd, ReplaceFile) {
-	class ClientHandler : public IClientHandler {};
+	class ClientHandler : public IClientHandler {
+	public:
+		virtual PortForwardingResponse OnExposePortAction(PortForwardingRequest req)override {
+			return PortForwardingResponse::Ok();
+		}
+	};
 	class Serverhandler : public IServerHandler {
 	private:
 		ReplaceFileRequest _request;
@@ -91,7 +96,12 @@ TEST(EndToEnd, ReplaceFile) {
 
 
 TEST(EndToEnd, ReplaceFile2) {
-	class ClientHandler : public IClientHandler {};
+	class ClientHandler : public IClientHandler {
+	public:
+		virtual PortForwardingResponse OnExposePortAction(PortForwardingRequest req)override {
+			return PortForwardingResponse::Ok();
+		}
+	};
 	class Serverhandler : public IServerHandler {
 	private:
 		ReplaceFileRequest _request;
