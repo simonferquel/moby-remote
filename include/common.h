@@ -148,13 +148,23 @@ namespace mobyremote{
 		Listener(const char* address, int port);
 		void StartAcceptLoop(const std::function<void(std::unique_ptr<Connection>)>& callback);
     };
-
-	std::unique_ptr<Connection> ConnectTo(const char* hostname, int port);
-#ifdef _WIN32
-	std::unique_ptr<Connection> ConnectTo(const char* hostname, int port, std::chrono::milliseconds timeout);
-#endif
-
+	
 	void startThread(const std::function<void(void)>& callback);
 	void overrideStartThread(std::function<void(const std::function<void(void)>&)> threadStarter);
 	void resetStartThread();
+
+	class ResolvedAddress {
+	public:
+		virtual ~ResolvedAddress() {}
+
+		virtual const sockaddr* SockAddr()const = 0;
+		virtual int SockAddrLen() const = 0;
+	};
+	std::unique_ptr<ResolvedAddress> Resolve(const char* hostName, int port);
+	std::unique_ptr<ResolvedAddress> ResolveUdp(const char* hostName, int port);
+
+	std::unique_ptr<Connection> ConnectTo(const ResolvedAddress& address);
+#ifdef _WIN32
+	std::unique_ptr<Connection> ConnectTo(const ResolvedAddress& address, std::chrono::milliseconds timeout);
+#endif
 }

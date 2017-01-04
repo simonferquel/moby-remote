@@ -3,7 +3,7 @@ COPY . /code
 WORKDIR c:\\build\\release
 RUN cmake -DCMAKE_INSTALL_PREFIX=c:\\redist\\release -DCMAKE_BUILD_TYPE=RelWithDebInfo -Dgtest_force_shared_crt=ON c:\\code
 RUN cmake --build .
-RUN ctest
+RUN ctest -vv
 RUN cmake --build . -- install
 WORKDIR c:\\build\\debug
 RUN cmake -DCMAKE_INSTALL_PREFIX=c:\\redist\\debug -DCMAKE_BUILD_TYPE=Debug -Dgtest_force_shared_crt=ON c:\\code

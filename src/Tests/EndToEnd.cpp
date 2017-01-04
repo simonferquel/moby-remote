@@ -30,7 +30,8 @@ public:
 			}
 		}).detach();
 		this_thread::sleep_for(100ms);
-		_clientConn = ConnectTo("127.0.0.1", 56987);
+		auto resolved = Resolve("127.0.0.1", 56987);
+		_clientConn = ConnectTo(*resolved);
 		while (!_serverConn) {
 			this_thread::sleep_for(10ms);
 		}
@@ -132,6 +133,49 @@ TEST(EndToEnd, ReplaceFile2) {
 	env.Stop();
 
 }
+
+#ifdef _WIN32
+TEST(EndToEnd, TcpForwardingSmallMessage) {
+	Listener l("127.0.0.1", 8890);
+	std::shared_ptr<Connection> listenerConn;
+	std::thread([&l, &listenerConn]() {
+		try {
+			l.StartAcceptLoop([&listenerConn](std::unique_ptr<Connection> c) {
+				int v;
+				c->Receive(Bufferize(v));
+				c->Send(Bufferize(v));
+				listenerConn = std::move(c);
+			});
+		}
+		catch (...)
+		{
+
+		}
+	}).detach();
+	TcpForwarder forwarder;
+	forwarder.Start();
+	forwarder.AddEntry(8889, 8890, "127.0.0.1");
+	
+	int value = 42;
+	auto c = ConnectTo(*Resolve("127.0.0.1", 8889));
+	c->Send(Bufferize(value));
+
+	int result;
+	c->Receive(Bufferize(result));
+	ASSERT_EQ(42, result);
+
+	value = 43;
+	auto c2 = ConnectTo(*Resolve("127.0.0.1", 8889));
+	c2->Send(Bufferize(value));
+
+	c2->Receive(Bufferize(result));
+	ASSERT_EQ(43, result);
+	c->Close();
+	c2->Close();
+
+	forwarder.Stop();
+}
+#endif
 
 int main(int argc, char **argv) {
 	::testing::InitGoogleTest(&argc, argv);

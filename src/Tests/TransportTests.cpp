@@ -22,7 +22,8 @@ TEST(Transport, ConnectionShouldWork) {
 		}
 	}).detach();
 	this_thread::sleep_for(100ms);
-	auto client = ConnectTo("127.0.0.1", 1011);
+	auto resolved = Resolve("127.0.0.1", 1011);
+	auto client = ConnectTo(*resolved);
 	this_thread::sleep_for(150ms);
 	ASSERT_TRUE(acceptedConnection);
 
@@ -47,7 +48,8 @@ TEST(Transport, SendReceiveSmall) {
 		}
 	}).detach();
 	this_thread::sleep_for(100ms);
-	auto client = ConnectTo("127.0.0.1", 1012);
+	auto resolved = Resolve("127.0.0.1", 1012);
+	auto client = ConnectTo(*resolved);
 	int result = 0;
 	auto buf = Bufferize(result);
 	client->Receive(buf);
@@ -75,7 +77,8 @@ TEST(Transport, SendReceiveLarge) {
 		}
 	}).detach();
 	this_thread::sleep_for(100ms);
-	auto client = ConnectTo("127.0.0.1", 1013);
+	auto resolved = Resolve("127.0.0.1", 1013);
+	auto client = ConnectTo(*resolved);
 	BufferView buf(dest.get(), 1024 * 1024 * 5);
 	client->Receive(buf);
 	ASSERT_TRUE(std::equal(source.get(), source.get() + 1024 * 1024 * 5, dest.get(), dest.get() + 1024 * 1024 * 5));

@@ -5,5 +5,5 @@ COPY . ./
 WORKDIR /build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/build/install -DCMAKE_BUILD_TYPE=Release /sources
 RUN cmake --build .
-RUN ctest
+RUN ctest -vv
 RUN cmake --build . -- install

@@ -1,5 +1,6 @@
 
 #include <server.h>
+#include <thread>
 
 using namespace mobyremote;
 using namespace std;
@@ -32,19 +33,21 @@ mobyremote::PortForwardingRequestListener::PortForwardingRequestListener(const c
 
 void mobyremote::PortForwardingRequestListener::Loop()
 {
-	while(_s.Get() != INVALID_SOCKET){
+	while (_s.Get() != INVALID_SOCKET) {
 		auto rawSock = accept(_s.Get(), nullptr, nullptr);
 		if (INVALID_SOCKET == rawSock) {
 			continue;
 		}
 		auto clientSock = make_shared<SafeSocket>(rawSock);
-		PortForwardingRequest req;
-		if (sizeof(req) != recv(clientSock->Get(), reinterpret_cast<char*>(&req), sizeof(req), MSG_WAITALL)) {
-			continue;
-		}
-		_forwarder->Handle(req, [cliSock = std::move(clientSock)](PortForwardingResponse resp){
-			send(cliSock->Get(), reinterpret_cast<char*>(&resp), sizeof(resp), 0);
-		});
+		std::thread([clientSock, fw = _forwarder]() {			
+			PortForwardingRequest req;
+			if (sizeof(req) != recv(clientSock->Get(), reinterpret_cast<char*>(&req), sizeof(req), MSG_WAITALL)) {
+				return;
+			}
+			fw->Handle(req, [clientSock](PortForwardingResponse resp){
+				send(clientSock->Get(), reinterpret_cast<char*>(&resp), sizeof(resp), 0);
+			});
+		}).detach();
 	}
 }
 

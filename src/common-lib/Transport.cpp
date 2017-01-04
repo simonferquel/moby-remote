@@ -81,17 +81,17 @@ void mobyremote::Connection::Receive(BufferView & buf)
 		throw TransportErrorException{ TransportError::SendReceiveFailed };
 	}
 #endif
-	if (recv(_socket.Get(), buf.begin(), buf.size(), MSG_WAITALL) != buf.size()) {
+	auto receivedAmount = recv(_socket.Get(), buf.begin(), buf.size(), MSG_WAITALL);
+	if (receivedAmount != buf.size()) {
 		throw TransportErrorException{ TransportError::SendReceiveFailed };
 	}
 }
 
-std::unique_ptr<Connection> mobyremote::ConnectTo(const char * hostname, int port)
+std::unique_ptr<Connection> mobyremote::ConnectTo(const ResolvedAddress& address)
 {
 	init_transport_once();
-	auto resolved = Resolve(hostname, port);
 	SafeSocket s = socket(AF_INET, SOCK_STREAM, 0);
-	if (0 != connect(s.Get(), resolved->SockAddr(), resolved->SockAddrLen())) {
+	if (0 != connect(s.Get(), address.SockAddr(), address.SockAddrLen())) {
 		throw TransportErrorException{ TransportError::ConnectFailed };
 	}
 	return std::make_unique<Connection>(std::move(s));
@@ -105,16 +105,15 @@ mobyremote::TransportErrorException::TransportErrorException(TransportError e) :
 
 #ifdef _WIN32
 
-std::unique_ptr<Connection> mobyremote::ConnectTo(const char * hostname, int port, std::chrono::milliseconds timeout)
+std::unique_ptr<Connection> mobyremote::ConnectTo(const ResolvedAddress& address, std::chrono::milliseconds timeout)
 {
 	init_transport_once();
-	auto resolved = Resolve(hostname, port);
 	SafeSocket s = socket(AF_INET, SOCK_STREAM, 0);
 	unsigned long nonBlocking = 1, blocking = 0;
 	ioctlsocket(s.Get(), FIONBIO, &nonBlocking);
 	auto secs = timeout.count() / 1000;
 	auto msecs = timeout.count() % 1000;
-	if (0 != connect(s.Get(), resolved->SockAddr(), resolved->SockAddrLen())) {
+	if (0 != connect(s.Get(), address.SockAddr(), address.SockAddrLen())) {
 		auto err = WSAGetLastError();
 		if (err != WSAEWOULDBLOCK) {
 			throw TransportErrorException{ TransportError::ConnectFailed };

@@ -1,8 +1,10 @@
 #include <protocol.h>
 #include <mutex>
+#include <future>
 using namespace mobyremote;
 struct mobyremote::Codec::MutexWrapper {
 	std::mutex mut;
+	std::promise<void> closeFuture;
 };
 mobyremote::Codec::Codec(std::unique_ptr<Connection>&& conn, const EventHandler& eventHandler, const RequestHandler& requestHandler) : _mutex(std::make_unique<MutexWrapper>()), _connection(std::move(conn)), _lastCorrelationId(0), _eventHandler(eventHandler), _requestHandler(requestHandler)
 {
@@ -10,6 +12,7 @@ mobyremote::Codec::Codec(std::unique_ptr<Connection>&& conn, const EventHandler&
 mobyremote::Codec::~Codec()
 {
 	Close();
+	_mutex->closeFuture.get_future().wait();
 }
 void mobyremote::Codec::Event(MessageType type, const BufferView & body)
 {
@@ -42,8 +45,9 @@ void mobyremote::Codec::Event(MessageType type, const std::initializer_list<Buff
 
 void mobyremote::Codec::ReceiveMessagesUntilClosed()
 {
+	_mutex->closeFuture = std::promise<void>();
 	try {
-		while (_connection->Valid()) {
+		while (_connection && _connection->Valid()) {
 			MessageHeader h;
 			auto hbuf = Bufferize(h);
 			_connection->Receive(hbuf);
@@ -74,8 +78,9 @@ void mobyremote::Codec::ReceiveMessagesUntilClosed()
 			}
 		}
 	}
-	catch (TransportErrorException&) {}
+	catch (...) {}
 	Close();
+	_mutex->closeFuture.set_value();
 }
 
 void mobyremote::Codec::Response(std::uint32_t correlationId, MessageType messageType, const BufferView & body)

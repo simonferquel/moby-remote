@@ -46,4 +46,22 @@ std::unique_ptr<ResolvedAddress> mobyremote::Resolve(const char * hostName, int 
 	}
 	return std::make_unique<WindowsResolvedAddress>(results);
 }
+std::unique_ptr<ResolvedAddress> mobyremote::ResolveUdp(const char * hostName, int port)
+{
+	auto sPort = std::to_string(port);
+	addrinfo hints;
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_protocol = IPPROTO_UDP;
+	addrinfo* results = nullptr;
+
+	if (getaddrinfo(hostName, sPort.c_str(), &hints, &results) != 0) {
+		throw TransportErrorException{ TransportError::NameResolutionFailed };
+	}
+	if (results == nullptr) {
+		throw TransportErrorException{ TransportError::NameResolutionFailed };
+	}
+	return std::make_unique<WindowsResolvedAddress>(results);
+}
 #endif
