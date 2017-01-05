@@ -175,6 +175,54 @@ TEST(EndToEnd, TcpForwardingSmallMessage) {
 
 	forwarder.Stop();
 }
+
+
+TEST(EntToEnd, UdpForwarding) {
+	UdpForwarder f;
+	f.Start();
+	f.AddEntry(8880, 8881, "127.0.0.1");
+	auto forwarderAddress = ResolveUdp("127.0.0.1", 8880);
+	auto serverAddress = ResolveUdp("127.0.0.1", 8881);
+	SafeSocket serverSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	::bind(serverSock.Get(), serverAddress->SockAddr(), serverAddress->SockAddrLen());
+	SafeSocket client1 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	SafeSocket client2 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+	auto connResult = ::connect(client1.Get(), forwarderAddress->SockAddr(), forwarderAddress->SockAddrLen());
+	connResult = ::connect(client2.Get(), forwarderAddress->SockAddr(), forwarderAddress->SockAddrLen());
+
+	int32_t toSend=42;
+	auto written = send(client1.Get(), (char*)&toSend, sizeof(toSend), 0);
+	auto err = WSAGetLastError();
+	toSend = 43;
+	written = send(client1.Get(), (char*)&toSend, sizeof(toSend), 0);
+	toSend = 44;
+	written = send(client2.Get(), (char*)&toSend, sizeof(toSend), 0);
+	toSend = 45;
+	written = send(client2.Get(), (char*)&toSend, sizeof(toSend), 0);
+
+	for (int i = 0; i < 4; ++i) {	
+		char buff[4096];
+		sockaddr_in clientAddr;
+		int clientAddrLen = sizeof(clientAddr);
+		auto size = recvfrom(serverSock.Get(), buff, 4096, 0, (sockaddr*)&clientAddr, &clientAddrLen);
+		ASSERT_EQ(size, 4);
+		written = sendto(serverSock.Get(), buff, size, 0, (sockaddr*)&clientAddr, clientAddrLen);
+	}
+
+	int32_t received;
+	recv(client1.Get(), (char*)&received, sizeof(received), 0);
+	ASSERT_EQ(42, received);
+	recv(client1.Get(), (char*)&received, sizeof(received), 0);
+	ASSERT_EQ(43, received);
+	recv(client2.Get(), (char*)&received, sizeof(received), 0);
+	ASSERT_EQ(44, received);
+	recv(client2.Get(), (char*)&received, sizeof(received), 0);
+	ASSERT_EQ(45, received);
+
+	f.Stop();
+}
+
 #endif
 
 int main(int argc, char **argv) {
