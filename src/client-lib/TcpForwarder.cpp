@@ -34,22 +34,26 @@ namespace mobyremote {
 		SafeSocket listeningSocket;
 		std::unique_ptr<ResolvedAddress> remoteAddr;
 	};
-
+	struct EventPair {
+		SafeAutoResetEvent localEvent;
+		SafeAutoResetEvent remoteEvent;
+		EventPair() : localEvent(MakeAutoResetEvent()), remoteEvent(MakeAutoResetEvent()) {}
+	};
 	class TcpDataBridge {
 	private:
+		const int EventSlotCount = MAXIMUM_WAIT_OBJECTS / 2;
 		std::atomic<bool> _running;
 		std::thread _runningThread;
-		SafeAutoResetEvent _localEvent;
-		SafeAutoResetEvent _remoteEvent;
+		std::vector<EventPair> _events;
 		std::mutex _mut;
-		std::vector<ConnectedPair> _entries;
+		std::map<int, std::vector<ConnectedPair>> _entriesSlots;
 
-		void OnLocalSocketSignaled() {
+		int _lastUsedSlot = -1;
+
+		void OnLocalSocketSignaled(int slot) {
 			std::lock_guard<std::mutex> lg(_mut);
-			if (_entries.size() == 0) {
-				return;
-			}
-			for (auto& pair : _entries) {
+			auto& entries = _entriesSlots[slot];
+			for (auto& pair : entries) {
 
 				WSANETWORKEVENTS events;
 				WSAEnumNetworkEvents(pair.local.Get(), nullptr, &events);
@@ -84,8 +88,8 @@ namespace mobyremote {
 					if (pair.to_remote.size() > 0) {
 						remoteEvents |= FD_WRITE;
 					}
-					WSAEventSelect(pair.local.Get(), _localEvent.get(), localEvents);
-					WSAEventSelect(pair.remote.Get(), _remoteEvent.get(), remoteEvents);
+					WSAEventSelect(pair.local.Get(), _events[slot].localEvent.get(), localEvents);
+					WSAEventSelect(pair.remote.Get(), _events[slot].remoteEvent.get(), remoteEvents);
 
 				}
 				if ((events.lNetworkEvents & FD_WRITE) == FD_WRITE) {
@@ -111,8 +115,8 @@ namespace mobyremote {
 						remoteEvents |= FD_WRITE;
 					}
 
-					WSAEventSelect(pair.local.Get(), _localEvent.get(), localEvents);
-					WSAEventSelect(pair.remote.Get(), _remoteEvent.get(), remoteEvents);
+					WSAEventSelect(pair.local.Get(), _events[slot].localEvent.get(), localEvents);
+					WSAEventSelect(pair.remote.Get(), _events[slot].remoteEvent.get(), remoteEvents);
 					if (pair.to_local.size() == 0 && pair.to_remote.size() == 0 && pair.closePending) {
 						pair.collectPending = true;
 					}
@@ -129,15 +133,16 @@ namespace mobyremote {
 
 				}
 			}
-			_entries.erase(std::remove_if(_entries.begin(), _entries.end(), [](const ConnectedPair& p) {return p.collectPending; }), _entries.end());
+			entries.erase(std::remove_if(entries.begin(), entries.end(), [](const ConnectedPair& p) {return p.collectPending; }), entries.end());
 		}
 
-		void OnRemoteSocketSignaled() {
+		void OnRemoteSocketSignaled(int slot) {
 			std::lock_guard<std::mutex> lg(_mut);
-			if (_entries.size() == 0) {
+			auto& entries = _entriesSlots[slot];
+			if (entries.size() == 0) {
 				return;
 			}
-			for (auto& pair : _entries) {
+			for (auto& pair : entries) {
 				WSANETWORKEVENTS events;
 				WSAEnumNetworkEvents(pair.remote.Get(), nullptr, &events);
 
@@ -172,8 +177,8 @@ namespace mobyremote {
 					if (pair.to_remote.size() > 0) {
 						remoteEvents |= FD_WRITE;
 					}
-					WSAEventSelect(pair.local.Get(), _localEvent.get(), localEvents);
-					WSAEventSelect(pair.remote.Get(), _remoteEvent.get(), remoteEvents);
+					WSAEventSelect(pair.local.Get(), _events[slot].localEvent.get(), localEvents);
+					WSAEventSelect(pair.remote.Get(), _events[slot].remoteEvent.get(), remoteEvents);
 
 
 				}
@@ -202,8 +207,8 @@ namespace mobyremote {
 						remoteEvents |= FD_WRITE;
 					}
 
-					WSAEventSelect(pair.local.Get(), _localEvent.get(), localEvents);
-					WSAEventSelect(pair.remote.Get(), _remoteEvent.get(), remoteEvents);
+					WSAEventSelect(pair.local.Get(), _events[slot].localEvent.get(), localEvents);
+					WSAEventSelect(pair.remote.Get(), _events[slot].remoteEvent.get(), remoteEvents);
 					if (pair.to_local.size() == 0 && pair.to_remote.size() == 0 && pair.closePending) {
 						pair.collectPending = true;
 					}
@@ -221,26 +226,38 @@ namespace mobyremote {
 				}
 			}
 
-			_entries.erase(std::remove_if(_entries.begin(), _entries.end(), [](const ConnectedPair& p) {return p.collectPending; }), _entries.end());
+			entries.erase(std::remove_if(entries.begin(), entries.end(), [](const ConnectedPair& p) {return p.collectPending; }), entries.end());
 
 		}
 	public:
-		TcpDataBridge() :_localEvent(MakeAutoResetEvent()), _remoteEvent(MakeAutoResetEvent()), _running(false)
+		TcpDataBridge() : _running(false)
 		{
-
+			_events.resize(EventSlotCount);
 		}
 		void Loop() {
+			std::vector<HANDLE> events;
+			for (auto& p : _events) {
+				events.push_back(p.localEvent.get());
+				events.push_back(p.remoteEvent.get());
+			}
 			while (_running) {
-				HANDLE events[] = { _localEvent.get(), _remoteEvent.get() };
-				auto waitResult = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+				auto waitResult = WaitForMultipleObjects(events.size(), &events[0], FALSE, INFINITE);
 				if (!_running) {
 					return;
 				}
-				if (waitResult == WAIT_OBJECT_0) {
-					OnLocalSocketSignaled();
+				if (waitResult >=WAIT_ABANDONED_0 || waitResult == WAIT_IO_COMPLETION || waitResult == WAIT_TIMEOUT || waitResult == WAIT_FAILED) {
+					continue;
 				}
-				else if (waitResult == WAIT_OBJECT_0 + 1) {
-					OnRemoteSocketSignaled();
+				else{
+					auto evIndex = waitResult - WAIT_OBJECT_0;
+					auto slotIndex = evIndex / 2;
+					bool isRemote = (evIndex % 2) == 1;
+					if (isRemote) {
+						OnRemoteSocketSignaled(slotIndex);
+					}
+					else {
+						OnLocalSocketSignaled(slotIndex);
+					}
 				}
 			}
 		}
@@ -260,8 +277,8 @@ namespace mobyremote {
 			_running = false;
 			{
 				std::lock_guard<std::mutex> lg(_mut);
-				_entries.clear();
-				SetEvent(_localEvent.get());
+				_entriesSlots.clear();
+				SetEvent(_events[0].localEvent.get());
 			}
 			_runningThread.join();
 		}
@@ -271,14 +288,16 @@ namespace mobyremote {
 		void AddConnectedPair(ConnectedPair&& pair) {
 
 			std::lock_guard<std::mutex> lg(_mut);
-			_entries.push_back(std::move(pair));
-			if ((_entries.end() - 1)->connected) {
-				WSAEventSelect((_entries.end() - 1)->local.Get(), _localEvent.get(), FD_READ | FD_CLOSE);
-				WSAEventSelect((_entries.end() - 1)->remote.Get(), _remoteEvent.get(), FD_READ | FD_CLOSE);
+			auto slot = (++_lastUsedSlot) % EventSlotCount;
+			auto& evs = _events[slot];
+			_entriesSlots[slot].push_back(std::move(pair));
+			if ((_entriesSlots[slot].end() - 1)->connected) {
+				WSAEventSelect((_entriesSlots[slot].end() - 1)->local.Get(), evs.localEvent.get(), FD_READ | FD_CLOSE);
+				WSAEventSelect((_entriesSlots[slot].end() - 1)->remote.Get(), evs.remoteEvent.get(), FD_READ | FD_CLOSE);
 			}
 			else {
-				WSAEventSelect((_entries.end() - 1)->local.Get(), _localEvent.get(), FD_READ | FD_CLOSE);
-				WSAEventSelect((_entries.end() - 1)->remote.Get(), _remoteEvent.get(), FD_READ | FD_WRITE | FD_CLOSE);
+				WSAEventSelect((_entriesSlots[slot].end() - 1)->local.Get(), evs.localEvent.get(), FD_READ | FD_CLOSE);
+				WSAEventSelect((_entriesSlots[slot].end() - 1)->remote.Get(), evs.remoteEvent.get(), FD_READ | FD_WRITE | FD_CLOSE);
 			}
 		}
 	};

@@ -155,23 +155,25 @@ TEST(EndToEnd, TcpForwardingSmallMessage) {
 	TcpForwarder forwarder;
 	forwarder.Start();
 	forwarder.AddEntry(8889, 8890, "127.0.0.1");
+	for (int i = 0; i < 100; ++i) {
+		int value = 42;
+		auto c = ConnectTo(*Resolve("127.0.0.1", 8889));
+		c->Send(Bufferize(value));
+
+		int result;
+		c->Receive(Bufferize(result));
+		ASSERT_EQ(42, result);
+
+		value = 43;
+		auto c2 = ConnectTo(*Resolve("127.0.0.1", 8889));
+		c2->Send(Bufferize(value));
+
+		c2->Receive(Bufferize(result));
+		ASSERT_EQ(43, result);
+		c->Close();
+		c2->Close();
+	}
 	
-	int value = 42;
-	auto c = ConnectTo(*Resolve("127.0.0.1", 8889));
-	c->Send(Bufferize(value));
-
-	int result;
-	c->Receive(Bufferize(result));
-	ASSERT_EQ(42, result);
-
-	value = 43;
-	auto c2 = ConnectTo(*Resolve("127.0.0.1", 8889));
-	c2->Send(Bufferize(value));
-
-	c2->Receive(Bufferize(result));
-	ASSERT_EQ(43, result);
-	c->Close();
-	c2->Close();
 
 	forwarder.Stop();
 }
