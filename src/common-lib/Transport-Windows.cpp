@@ -31,6 +31,7 @@ public:
 
 std::unique_ptr<ResolvedAddress> mobyremote::Resolve(const char * hostName, int port)
 {
+	init_transport();
 	auto sPort = std::to_string(port);
 	addrinfo hints;
 	ZeroMemory(&hints, sizeof(hints));
@@ -49,6 +50,7 @@ std::unique_ptr<ResolvedAddress> mobyremote::Resolve(const char * hostName, int 
 }
 std::unique_ptr<ResolvedAddress> mobyremote::ResolveUdp(const char * hostName, int port)
 {
+	init_transport();
 	auto sPort = std::to_string(port);
 	addrinfo hints;
 	ZeroMemory(&hints, sizeof(hints));
